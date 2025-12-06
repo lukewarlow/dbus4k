@@ -1,0 +1,5 @@
+headers = sd-bus.h
+headerFilter = sd-bus.h
+package = platformx.sdbus
+
+linkerOpts = -lsystemd

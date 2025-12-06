@@ -1,0 +1,13 @@
+[versions]
+kotlin = "2.2.21"
+kotlinpoet = "2.2.0"
+kotlinxCoroutinesCore = "1.10.2"
+
+[libraries]
+kotlinpoet = { module = "com.squareup:kotlinpoet", version.ref = "kotlinpoet" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesCore" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+
+[plugins]
+kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlinJVM = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
