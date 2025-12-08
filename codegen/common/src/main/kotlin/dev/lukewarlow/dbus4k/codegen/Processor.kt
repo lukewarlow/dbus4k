@@ -140,23 +140,28 @@ private fun TypeSpec.Builder.addMethodCall(packageName: String, className: Strin
 
 private fun TypeSpec.Builder.addSignalFlow(packageName: String, className: String, signal: DBusSignal) {
     val kotlinName = signal.name.replaceFirstChar { it.lowercase() }
-    val constructor = FunSpec.constructorBuilder()
-    val resultClass = TypeSpec.classBuilder(signal.name + "Event")
-        .addModifiers(KModifier.DATA)
-    val readers = mutableListOf<String>()
-    signal.args.forEach { arg ->
-        val type = mapSignatureToKotlinType(arg.type)
-        constructor.addParameter(convertName(arg.name), type)
-        resultClass.addProperty(PropertySpec.builder(convertName(arg.name), type).initializer(convertName(arg.name)).build())
-        readers.add("signal.${generateReader(arg.type)}")
-    }
-    resultClass.primaryConstructor(constructor.build())
-    val returnType = resultClass.build()
-    this.addType(returnType)
-    val resultTypeName = ClassName(packageName, className, returnType.name!!)
-    val funSpec = FunSpec.builder(kotlinName)
-    funSpec.returns(Flow::class.asClassName().parameterizedBy(resultTypeName))
-    funSpec.addStatement("return bus.signalFlow(interfaceName, %S, path, destination).map { signal -> %T(%L) }", signal.name, resultTypeName, readers.joinToString(", "))
+	val funSpec = FunSpec.builder(kotlinName)
+	if (signal.args.isNotEmpty()) {
+		val constructor = FunSpec.constructorBuilder()
+		val resultClass = TypeSpec.classBuilder(signal.name.replaceFirstChar { it.uppercase() } + "Event")
+			.addModifiers(KModifier.DATA)
+		val readers = mutableListOf<String>()
+		signal.args.forEach { arg ->
+			val type = mapSignatureToKotlinType(arg.type)
+			constructor.addParameter(convertName(arg.name), type)
+			resultClass.addProperty(PropertySpec.builder(convertName(arg.name), type).initializer(convertName(arg.name)).build())
+			readers.add("signal.${generateReader(arg.type)}")
+		}
+		resultClass.primaryConstructor(constructor.build())
+		val returnType = resultClass.build()
+		this.addType(returnType)
+		val resultTypeName = ClassName(packageName, className, returnType.name!!)
+		funSpec.returns(Flow::class.asClassName().parameterizedBy(resultTypeName))
+		funSpec.addStatement("return bus.signalFlow(interfaceName, %S, path, destination).map { signal -> %T(%L) }", signal.name, resultTypeName, readers.joinToString(", "))
+	} else {
+		funSpec.returns(Flow::class.asClassName().parameterizedBy(UNIT))
+		funSpec.addStatement("return bus.signalFlow(interfaceName, %S, path, destination).map { Unit }", signal.name)
+	}
 
     this.addFunction(funSpec.build())
 }
@@ -210,9 +215,18 @@ private fun mapSignatureToKotlinType(signature: DBusSignature): TypeName = when(
 
     is DBusSignature.Array ->
         when (signature.element) {
-            is DBusSignature.Primitive -> LIST.parameterizedBy(mapSignatureToKotlinType(signature.element))
+            is DBusSignature.Primitive -> when (signature.element.code) {
+				'y' -> BYTE_ARRAY
+	            else -> LIST.parameterizedBy(mapSignatureToKotlinType(signature.element))
+			}
             is DBusSignature.DictionaryEntry -> MAP.parameterizedBy(STRING, ANY.copy(nullable = true))
             is DBusSignature.Struct -> LIST.parameterizedBy(mapSignatureToKotlinType(signature.element))
+	        is DBusSignature.Array -> {
+		        when (signature.element.element) {
+			       is DBusSignature.DictionaryEntry -> LIST.parameterizedBy(MAP.parameterizedBy(STRING, ANY.copy(nullable = true)))
+		           else -> LIST.parameterizedBy(ANY.copy(nullable = true))
+		        }
+			}
             else -> LIST.parameterizedBy(ANY.copy(nullable = true))
         }
 
@@ -229,7 +243,16 @@ private fun mapSignatureToKotlinType(signature: DBusSignature): TypeName = when(
             mapSignatureToKotlinType(signature.fields[1]),
             mapSignatureToKotlinType(signature.fields[2])
         )
-        else -> LIST.parameterizedBy(ANY)
+        else -> {
+	        val kotlinTypes = signature.fields.map { mapSignatureToKotlinType(it) }
+	        val first = kotlinTypes.first()
+	        val allSame = kotlinTypes.all { it == first }
+	        if (allSame) {
+				LIST.parameterizedBy(first)
+	        } else {
+		        LIST.parameterizedBy(ANY)
+	        }
+		}
     }
 }
 
@@ -259,8 +282,19 @@ private fun generateWriter(name: String, type: DBusSignature): String {
                     val c = generateWriter("it", element.fields[2])
                     "writeStructTripleArray(\"${element.toSignature()}\", ${name}, { $a }, { $b }, { $c })"
                 }
-                else -> error("Structs with ${element.fields.size} fields not supported")
+                else -> {
+					val fieldWriters = element.fields.mapIndexed { index, field ->
+						generateWriter("it[$index] as ${mapSignatureToKotlinType(field)}", field)
+					}.joinToString("\n")
+					"writeStructArray(\"${element.toSignature()}\", $name) {\n$fieldWriters\n}"
+				}
             }
+	        is DBusSignature.Array -> when (val innerElement = element.element) {
+		        is DBusSignature.DictionaryEntry -> {
+					"writeArray(\"${element.toSignature()}\", $name) {\nwriteMapVariant(it)\n}"
+				}
+		        else -> error("Unsupported nested array element type: $element")
+	        }
             else -> error("Unsupported array element type: $element")
         }
 
@@ -280,7 +314,12 @@ private fun generateWriter(name: String, type: DBusSignature): String {
                 val c = generateWriter("it", type.fields[2])
                 "writeStructTriple(${name}, { $a }, { $b }, { $c })"
             }
-            else -> error("Structs with ${type.fields.size} fields not supported")
+            else -> {
+	            val fieldWriters = type.fields.mapIndexed { index, field ->
+		            generateWriter("$name[$index] as ${mapSignatureToKotlinType(field)}", field)
+	            }.joinToString("\n")
+	            return "writeStruct {\n$fieldWriters\n}"
+			}
         }
     }
 }
@@ -316,6 +355,7 @@ private fun generateReader(type: DBusSignature): String {
             'd' -> "readDouble()"
             's' -> "readString()"
             'o' -> "readObjectPath()"
+            'h' -> "readFileDescriptor()"
             else -> error("Unsupported primitive $type")
         }
         is DBusSignature.Array -> when (val element = type.element) {
@@ -330,7 +370,8 @@ private fun generateReader(type: DBusSignature): String {
                 't' -> "readULongArray()"
                 'd' -> "readDoubleArray()"
                 's' -> "readStringArray()"
-                else -> error("Unsupported primitive $element")
+                'o' -> "readObjectPathArray()"
+                else -> error("Unsupported primitive array $element")
             }
             is DBusSignature.DictionaryEntry -> "readStringVariantDictionary()"
             is DBusSignature.Struct -> when (element.fields.size) {
@@ -345,7 +386,17 @@ private fun generateReader(type: DBusSignature): String {
                     val field3 = element.fields[2]
                     "readStructTripleArray(\"$typeSignature\", { ${generateReader(field1)} }, { ${generateReader(field2)} }, { ${generateReader(field3)} })"
                 }
-                else -> "readDynamicArray(\"$typeSignature\")"
+                else -> {
+	                val kotlinTypes = element.fields.map { mapSignatureToKotlinType(it) }
+	                val first = kotlinTypes.first()
+	                val allSame = kotlinTypes.all { it == first }
+	                if (allSame) {
+		                val fieldReaders = element.fields.map { field -> generateReader(field) }.joinToString(", ")
+						"readStructArray(\"$typeSignature\") { listOf($fieldReaders) }"
+	                } else {
+		                "readDynamicArray(\"$typeSignature\") as ${mapSignatureToKotlinType(type)}"
+	                }
+                }
             }
             is DBusSignature.Variant ->
                 "readDynamicArray(\"av\")"
@@ -364,7 +415,17 @@ private fun generateReader(type: DBusSignature): String {
                 val field3 = type.fields[2]
                 "readStructTriple({ ${generateReader(field1)} }, { ${generateReader(field2)} }, { ${generateReader(field3)} })"
             }
-            else -> "readDynamicStruct()"
+            else -> {
+	            val kotlinTypes = type.fields.map { mapSignatureToKotlinType(it) }
+	            val first = kotlinTypes.first()
+	            val allSame = kotlinTypes.all { it == first }
+	            if (allSame) {
+		            val fieldReaders = type.fields.map { field -> generateReader(field) }.joinToString(", ")
+		            "readStruct { listOf($fieldReaders) }"
+	            } else {
+		            "readDynamicStruct() as ${mapSignatureToKotlinType(type)}"
+	            }
+            }
         }
         is DBusSignature.DictionaryEntry -> error("DictionaryEntry cannot appear top-level; must be inside an array")
     }
@@ -384,6 +445,7 @@ private fun arrayWriterName(element: DBusSignature): String = when (element) {
         's' -> "writeStringArray"
         'o' -> "writeObjectPathArray"
         'g' -> "writeSignatureArray"
+        'h' -> "writeFileDescriptorArray"
         else -> error("Unsupported primitive array element '${element.code}'")
     }
 

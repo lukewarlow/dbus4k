@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.kotlinJVM) apply true
 }
 
-group = "dev.lukewarlow"
+group = "dev.lukewarlow.dbus4k"
 version = "0.0.1"
 
 repositories {

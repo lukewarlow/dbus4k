@@ -70,7 +70,7 @@ private fun parseInterface(element: Element): DBusInterface {
 private fun parseMethod(element: Element): DBusMethod {
     val name = element.getAttribute("name")
     val args = element.getElementsByTagName("arg").asSequence()
-        .map { parseArg(it as Element, DBusArgDirection.IN) }
+        .mapIndexed { index, arg -> parseArg(index, arg as Element, DBusArgDirection.IN) }
         .toList()
     val (inArgs, outArgs) = args.partition { it.direction == DBusArgDirection.IN }
     // TODO annotations
@@ -85,7 +85,7 @@ private fun parseMethod(element: Element): DBusMethod {
 private fun parseSignal(element: Element): DBusSignal {
     val name = element.getAttribute("name")
     val args = element.getElementsByTagName("arg").asSequence()
-        .map { parseArg(it as Element, DBusArgDirection.OUT) }
+        .mapIndexed { index, arg -> parseArg(index, arg as Element, DBusArgDirection.OUT) }
         .toList()
     val (_, outArgs) = args.partition { it.direction == DBusArgDirection.IN }
     // TODO annotations
@@ -113,8 +113,8 @@ private fun parseProperty(element: Element): DBusProperty {
     )
 }
 
-private fun parseArg(element: Element, defaultDirection: DBusArgDirection): DBusArg {
-    val name = element.getAttribute("name")
+private fun parseArg(index: Int, element: Element, defaultDirection: DBusArgDirection): DBusArg {
+    val name = element.getAttribute("name").ifEmpty {"arg$index"}
     val rawType = element.getAttribute("type")
     val rawDirection = element.getAttribute("direction")
     val direction = when (rawDirection) {

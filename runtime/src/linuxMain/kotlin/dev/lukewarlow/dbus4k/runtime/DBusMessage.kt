@@ -196,6 +196,8 @@ sealed class DBusMessage(
 
     fun readStringArray(): List<String> = readPrimitiveArray(DBusType.STRING) { readString() }
 
+    fun readObjectPathArray(): List<String> = readPrimitiveArray(DBusType.OBJECT_PATH) { readObjectPath() }
+
     fun readDynamicArray(elementSignature: String): List<Any?> {
         enterArray(elementSignature)
 
@@ -208,14 +210,14 @@ sealed class DBusMessage(
         return result
     }
 
-    inline fun <T> readStruct(block: () -> T): T {
+    inline fun <T> readStruct(block: DBusMessage.() -> T): T {
         enterStruct()
         val value = block()
         exitContainer()
         return value
     }
 
-    fun <A, B> readStructPair(
+    inline fun <A, B> readStructPair(
         readA: DBusMessage.() -> A,
         readB: DBusMessage.() -> B
     ): Pair<A, B> = readStruct {
@@ -224,7 +226,7 @@ sealed class DBusMessage(
         Pair(a, b)
     }
 
-    fun <A, B, C> readStructTriple(
+    inline fun <A, B, C> readStructTriple(
         readA: DBusMessage.() -> A,
         readB: DBusMessage.() -> B,
         readC: DBusMessage.() -> C
@@ -235,7 +237,7 @@ sealed class DBusMessage(
         Triple(a, b, c)
     }
 
-    fun <A, B> readStructPairArray(
+    inline fun <A, B> readStructPairArray(
         signature: String,
         readA: DBusMessage.() -> A,
         readB: DBusMessage.() -> B,
@@ -250,7 +252,7 @@ sealed class DBusMessage(
         return result
     }
 
-    fun <A, B, C> readStructTripleArray(
+    inline fun <A, B, C> readStructTripleArray(
         signature: String,
         readA: DBusMessage.() -> A,
         readB: DBusMessage.() -> B,
@@ -266,10 +268,25 @@ sealed class DBusMessage(
         return result
     }
 
-    fun readDynamicStruct(): List<Any?> = readStruct {
+    inline fun <T> readStructArray(
+        signature: String,
+        structReader: DBusMessage.() -> T,
+    ): List<T> {
+        val result = mutableListOf<T>()
+        enterArray(signature)
+        while (peekType() != DBusType.NONE) {
+            result += readStruct {
+	            structReader()
+            }
+        }
+        exitContainer()
+        return result
+    }
+
+    fun readDynamicStruct(): List<Any> = readStruct {
         buildList {
             while (peekType() != DBusType.NONE) {
-                add(readDynamicValue())
+                add(readDynamicValue()!!)
             }
         }
     }
@@ -396,63 +413,45 @@ sealed class DBusMessage(
 
     fun writeFileDescriptor(value: Int) = writePrimitive(value, DBusType.FILE_DESCRIPTOR)
 
-    inline fun writeArray(elementSignature: String, writer: () -> Unit) {
+    inline fun <T> writeArray(elementSignature: String, values: List<T>, writer: DBusMessage.(T) -> Unit) {
         enterArray(elementSignature)
-        writer()
+        values.forEach {
+	        writer(it)
+        }
         exitContainer()
     }
 
-    private inline fun writePrimitiveArray(type: DBusType, writer: () -> Unit) = writeArray(type.toSignatureString(), writer)
+    private inline fun <T> writePrimitiveArray(type: DBusType, values: List<T>, writer: (T) -> Unit) = writeArray(type.toSignatureString(), values, writer)
 
-    fun writeByteArray(values: ByteArray) = writePrimitiveArray(DBusType.BYTE) {
-        values.forEach(::writeByte)
+    fun writeByteArray(values: ByteArray) {
+	    enterArray(DBusType.BYTE.toSignatureString())
+	    values.forEach(::writeByte)
+	    exitContainer()
     }
 
-    fun writeBooleanArray(values: List<Boolean>) = writePrimitiveArray(DBusType.BOOLEAN) {
-        values.forEach(::writeBoolean)
-    }
+    fun writeBooleanArray(values: List<Boolean>) = writePrimitiveArray(DBusType.BOOLEAN, values, ::writeBoolean)
 
-    fun writeShortArray(values: List<Short>) = writePrimitiveArray(DBusType.SHORT) {
-        values.forEach(::writeShort)
-    }
+    fun writeShortArray(values: List<Short>) = writePrimitiveArray(DBusType.SHORT, values, ::writeShort)
 
-    fun writeUShortArray(values: List<UShort>) = writePrimitiveArray(DBusType.USHORT) {
-        values.forEach(::writeUShort)
-    }
+    fun writeUShortArray(values: List<UShort>) = writePrimitiveArray(DBusType.USHORT, values, ::writeUShort)
 
-    fun writeIntArray(values: List<Int>) = writePrimitiveArray(DBusType.INT) {
-        values.forEach(::writeInt)
-    }
+	fun writeIntArray(values: List<Int>) = writePrimitiveArray(DBusType.INT, values, ::writeInt)
 
-    fun writeUIntArray(values: List<UInt>) = writePrimitiveArray(DBusType.UINT) {
-        values.forEach(::writeUInt)
-    }
+	fun writeUIntArray(values: List<UInt>) = writePrimitiveArray(DBusType.UINT, values, ::writeUInt)
 
-    fun writeLongArray(values: List<Long>) = writePrimitiveArray(DBusType.LONG) {
-        values.forEach(::writeLong)
-    }
+	fun writeLongArray(values: List<Long>) = writePrimitiveArray(DBusType.LONG, values, ::writeLong)
 
-    fun writeULongArray(values: List<ULong>) = writePrimitiveArray(DBusType.ULONG) {
-        values.forEach(::writeULong)
-    }
+	fun writeULongArray(values: List<ULong>) = writePrimitiveArray(DBusType.ULONG, values, ::writeULong)
 
-    fun writeDoubleArray(values: List<Double>) = writePrimitiveArray(DBusType.DOUBLE) {
-        values.forEach(::writeDouble)
-    }
+	fun writeDoubleArray(values: List<Double>) = writePrimitiveArray(DBusType.DOUBLE, values, ::writeDouble)
 
-    fun writeStringArray(values: List<String>) = writePrimitiveArray(DBusType.STRING) {
-        values.forEach(::writeString)
-    }
+    fun writeStringArray(values: List<String>) = writePrimitiveArray(DBusType.STRING, values, ::writeString)
+    fun writeObjectPathArray(values: List<String>) = writePrimitiveArray(DBusType.OBJECT_PATH, values, ::writeObjectPath)
+    fun writeSignatureArray(values: List<String>) = writePrimitiveArray(DBusType.SIGNATURE, values, ::writeSignature)
 
-    fun writeObjectPathArray(values: List<String>) = writePrimitiveArray(DBusType.OBJECT_PATH) {
-        values.forEach(::writeObjectPath)
-    }
+	fun writeFileDescriptorArray(values: List<Int>) = writePrimitiveArray(DBusType.FILE_DESCRIPTOR, values, ::writeFileDescriptor)
 
-    fun writeSignatureArray(values: List<String>) = writePrimitiveArray(DBusType.SIGNATURE) {
-        values.forEach(::writeSignature)
-    }
-
-    inline fun writeStruct(writer: () -> Unit) {
+    inline fun writeStruct(writer: DBusMessage.() -> Unit) {
         enterStruct()
         writer()
         exitContainer()
@@ -473,21 +472,25 @@ sealed class DBusMessage(
         }
     }
 
-    inline fun <A, B> writeStructPairArray(signature: String, value: List<Pair<A, B>>, writeA: DBusMessage.(A) -> Unit, writeB: DBusMessage.(B) -> Unit) {
-        writeArray(signature) {
-            for (pair in value) {
-                writeStructPair(pair, writeA, writeB)
-            }
+    inline fun <A, B> writeStructPairArray(signature: String, values: List<Pair<A, B>>, writeA: DBusMessage.(A) -> Unit, writeB: DBusMessage.(B) -> Unit) {
+        writeArray(signature, values) { pair ->
+			writeStructPair(pair, writeA, writeB)
         }
     }
 
-    inline fun <A, B, C> writeStructTripleArray(signature: String, value: List<Triple<A, B, C>>, writeA: DBusMessage.(A) -> Unit, writeB: DBusMessage.(B) -> Unit, writeC: DBusMessage.(C) -> Unit) {
-        writeArray(signature) {
-            for (triple in value) {
-                writeStructTriple(triple, writeA, writeB, writeC)
-            }
+    inline fun <A, B, C> writeStructTripleArray(signature: String, values: List<Triple<A, B, C>>, writeA: DBusMessage.(A) -> Unit, writeB: DBusMessage.(B) -> Unit, writeC: DBusMessage.(C) -> Unit) {
+        writeArray(signature, values) { triple ->
+            writeStructTriple(triple, writeA, writeB, writeC)
         }
     }
+
+	inline fun <T> writeStructArray(signature: String, values: List<T>, writeFields: DBusMessage.(T) -> Unit) {
+		writeArray(signature, values) { value ->
+			writeStruct {
+				writeFields(value)
+			}
+		}
+	}
 
     fun writeVariant(value: Any?) {
         when (value) {
@@ -522,7 +525,7 @@ sealed class DBusMessage(
     fun writeListVariant(values: List<*>) {
         if (values.isEmpty()) {
             writeVariant("av") {
-                writeArray("v") {}
+                writeArray("v", emptyList<Any?>()) {}
             }
             return
         }
@@ -543,21 +546,19 @@ sealed class DBusMessage(
         }
 
         writeVariant("a${elementType.toSignatureString()}") {
-            writeArray(elementType.toSignatureString()) {
-                values.forEach { value ->
-                    when (value) {
-                        is Byte -> writeByte(value)
-                        is Boolean -> writeBoolean(value)
-                        is Short -> writeShort(value)
-                        is UShort -> writeUShort(value)
-                        is Int -> writeInt(value)
-                        is UInt -> writeUInt(value)
-                        is Long -> writeLong(value)
-                        is ULong -> writeULong(value)
-                        is Double -> writeDouble(value)
-                        is String -> writeString(value)
-                        else -> writeVariant(value!!)
-                    }
+            writeArray(elementType.toSignatureString(), values) { value ->
+                when (value) {
+                    is Byte -> writeByte(value)
+                    is Boolean -> writeBoolean(value)
+                    is Short -> writeShort(value)
+                    is UShort -> writeUShort(value)
+                    is Int -> writeInt(value)
+                    is UInt -> writeUInt(value)
+                    is Long -> writeLong(value)
+                    is ULong -> writeULong(value)
+                    is Double -> writeDouble(value)
+                    is String -> writeString(value)
+                    else -> writeVariant(value!!)
                 }
             }
         }
@@ -589,12 +590,14 @@ sealed class DBusMessage(
         map: Map<K, V>,
         keyWriter: (K) -> Unit,
         valueWriter: (V) -> Unit
-    ) = writeArray("{$keySignature$valueSignature}") {
-        map.forEach { (k, v) ->
-            writeDictionaryEntry(keySignature, valueSignature) {
-                keyWriter(k)
-                valueWriter(v)
-            }
-        }
+    ) {
+	    enterArray("{$keySignature$valueSignature}")
+	    map.forEach { (k, v) ->
+		    writeDictionaryEntry(keySignature, valueSignature) {
+			    keyWriter(k)
+			    valueWriter(v)
+		    }
+	    }
+	    exitContainer()
     }
 }

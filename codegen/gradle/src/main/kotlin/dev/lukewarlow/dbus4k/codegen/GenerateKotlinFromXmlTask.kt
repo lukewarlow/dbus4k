@@ -29,6 +29,7 @@ abstract class GenerateKotlinFromXmlTask : DefaultTask() {
         output.mkdirs()
 
         files.get().forEach { file ->
+			logger.lifecycle("Started processing ${file.path}")
             val xmlContent = file.readText()
             val fileName = file.nameWithoutExtension + ".kt"
             val kotlinSource = processXML(xmlContent, fileName, packageName.get())

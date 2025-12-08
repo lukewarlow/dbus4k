@@ -7,13 +7,11 @@ class GradleCodegenPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         val extension = project.extensions.create("dbus4k", DBus4kExtension::class.java)
         val taskProvider = project.tasks.register("generateDBusKotlin", GenerateKotlinFromXmlTask::class.java)
-        taskProvider.configure { task ->
-            task.packageName
-                .convention("dev.lukewarlow.dbus4k.generated")
-                .set(extension.packageName)
-            task.outputDirectory
-                .convention(project.layout.buildDirectory.dir("generated/dbus/kotlin"))
-                .set(extension.output)
+        taskProvider.configure {
+            this.packageName
+                .convention(extension.packageName.orElse("dev.lukewarlow.dbus4k.generated"))
+	        this.outputDirectory
+                .convention(extension.output.orElse(project.layout.buildDirectory.dir("generated/dbus/kotlin")))
 
             val defaultXml = project.layout.projectDirectory
                 .dir("src/linuxMain/dbus")
@@ -22,8 +20,7 @@ class GradleCodegenPlugin : Plugin<Project> {
                 .files
                 .toList()
 
-            task.files.convention(defaultXml)
-
+	        this.files.convention(defaultXml)
 
             val extensionXml = extension.xml
                 .asFileTree
@@ -32,12 +29,15 @@ class GradleCodegenPlugin : Plugin<Project> {
                 .toList()
 
             if (extensionXml.isNotEmpty()) {
-                task.files.set(extensionXml)
+	            this.files.set(extensionXml)
             }
         }
 
-        project.tasks.named("compileKotlin").configure {
-            it.dependsOn(taskProvider)
-        }
+	    project.tasks.configureEach {
+		    if (this.name.startsWith("compileKotlin")) {
+			    this.dependsOn(taskProvider)
+		    }
+	    }
+
     }
 }
