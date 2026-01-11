@@ -312,7 +312,7 @@ private fun generateWriter(expr: CodeBlock, type: DBusSignature): CodeBlock {
                 val a = generateWriter(CodeBlock.of("it"), type.fields[0])
                 val b = generateWriter(CodeBlock.of("it"), type.fields[1])
                 val c = generateWriter(CodeBlock.of("it"), type.fields[2])
-                CodeBlock.of("writeStructTriple(%N, { %L }, { %L }, { %L })", expr, a, b, c)
+                CodeBlock.of("writeStructTriple(%L, { %L }, { %L }, { %L })", expr, a, b, c)
             }
             else -> {
 	            val fieldWriters = type.fields.mapIndexed { index, field ->
