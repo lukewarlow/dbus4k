@@ -382,9 +382,60 @@ sealed class DBusMessage(
         contentsOut.value?.toKString() ?: ""
     }
 
-
     internal fun writePrimitive(value: Any, type: DBusType) {
         dbusCheck(sd_bus_message_append(pointer, type.toSignatureString(), value))
+        dbusCheck(
+            when (value) {
+                is Byte -> sd_bus_message_append(
+                    pointer,
+                    type.toSignatureString(),
+                    value
+                )
+                is Short -> sd_bus_message_append(
+                    pointer,
+                    type.toSignatureString(),
+                    value
+                )
+                is UShort -> sd_bus_message_append(
+                    pointer,
+                    type.toSignatureString(),
+                    value
+                )
+                is Int -> sd_bus_message_append(
+                    pointer,
+                    type.toSignatureString(),
+                    value
+                )
+                is UInt -> sd_bus_message_append(
+                    pointer,
+                    type.toSignatureString(),
+                    value
+                )
+                is Long -> sd_bus_message_append(
+                    pointer,
+                    type.toSignatureString(),
+                    value
+                )
+                is ULong -> sd_bus_message_append(
+                    pointer,
+                    type.toSignatureString(),
+                    value
+                )
+                is Double -> sd_bus_message_append(
+                    pointer,
+                    type.toSignatureString(),
+                    value
+                )
+                is String -> memScoped {
+                    sd_bus_message_append(
+                        pointer,
+                        type.toSignatureString(),
+                        value.cstr.ptr
+                    )
+                }
+                else -> error("Unsupported primitive: $value")
+            }
+        )
     }
 
     fun writeByte(value: Byte) = writePrimitive(value, DBusType.BYTE)
