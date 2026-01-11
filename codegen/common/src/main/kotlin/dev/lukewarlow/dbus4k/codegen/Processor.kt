@@ -219,19 +219,20 @@ private fun mapSignatureToKotlinType(signature: DBusSignature): TypeName = when(
 				'y' -> BYTE_ARRAY
 	            else -> LIST.parameterizedBy(mapSignatureToKotlinType(signature.element))
 			}
-            is DBusSignature.DictionaryEntry -> MAP.parameterizedBy(STRING, ANY.copy(nullable = true))
-            is DBusSignature.Struct -> LIST.parameterizedBy(mapSignatureToKotlinType(signature.element))
-	        is DBusSignature.Array -> {
-		        when (signature.element.element) {
-			       is DBusSignature.DictionaryEntry -> LIST.parameterizedBy(MAP.parameterizedBy(STRING, ANY.copy(nullable = true)))
-		           else -> LIST.parameterizedBy(ANY.copy(nullable = true))
-		        }
-			}
-            else -> LIST.parameterizedBy(ANY.copy(nullable = true))
+            is DBusSignature.DictionaryEntry -> MAP.parameterizedBy(
+                mapSignatureToKotlinType(signature.element.key),
+                mapSignatureToKotlinType(signature.element.value)
+            )
+            is DBusSignature.Struct,
+            is DBusSignature.Array -> LIST.parameterizedBy(mapSignatureToKotlinType(signature.element))
+            is DBusSignature.Variant -> LIST.parameterizedBy(ANY.copy(nullable = true))
         }
 
     is DBusSignature.DictionaryEntry ->
-        MAP.parameterizedBy(STRING, ANY.copy(nullable = true))
+        MAP.parameterizedBy(
+            mapSignatureToKotlinType(signature.key),
+            mapSignatureToKotlinType(signature.value)
+        )
 
     is DBusSignature.Struct -> when(signature.fields.size) {
         2 -> Pair::class.asClassName().parameterizedBy(
@@ -373,7 +374,11 @@ private fun generateReader(type: DBusSignature): String {
                 'o' -> "readObjectPathArray()"
                 else -> error("Unsupported primitive array $element")
             }
-            is DBusSignature.DictionaryEntry -> "readStringVariantDictionary()"
+            is DBusSignature.DictionaryEntry -> {
+                val keyReader = generateReader(type.element.key)
+                val valueReader = generateReader(type.element.value)
+                "readDictionary(\"${typeSignature}\", { $keyReader }, { $valueReader })"
+            }
             is DBusSignature.Struct -> when (element.fields.size) {
                 2 -> {
                     val field1 = element.fields[0]

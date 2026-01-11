@@ -373,4 +373,115 @@ class ParserTest {
         )
         assertEquals(ast, parseXML(inputFile))
     }
+
+    @Test
+    fun testWithDBusObjectManager() {
+        val inputFile = """
+            <node>
+                <interface name="org.freedesktop.DBus.ObjectManager">
+                    <method name="GetManagedObjects">
+                        <arg direction="out" name="objects" type="a{oa{sa{sv}}}"/>
+                    </method>
+                    <signal name="InterfacesAdded">
+                        <arg name="object" type="o"/>
+                        <arg name="interfaces" type="a{sa{sv}}"/>
+                    </signal>
+                    <signal name="InterfacesRemoved">
+                        <arg name="object" type="o"/>
+                        <arg name="interfaces" type="as"/>
+                    </signal>
+                </interface>
+            </node>
+        """.trimIndent()
+
+        val ast = DBusIntrospectionNode(
+            name = "",
+            interfaces = listOf(
+                DBusInterface(
+                    name = "org.freedesktop.DBus.ObjectManager",
+                    methods = listOf(
+                        DBusMethod(
+                            name = "GetManagedObjects",
+                            inArgs = emptyList(),
+                            outArgs = listOf(
+                                DBusArg(
+                                    name = "objects",
+                                    type = DBusSignature.Array(
+                                        DBusSignature.DictionaryEntry(
+                                            key = DBusSignature.Primitive('o'),
+                                            value = DBusSignature.Array(
+                                                DBusSignature.DictionaryEntry(
+                                                    key = DBusSignature.Primitive('s'),
+                                                    value = DBusSignature.Array(
+                                                        DBusSignature.DictionaryEntry(
+                                                            key = DBusSignature.Primitive('s'),
+                                                            value = DBusSignature.Variant
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    ),
+                                    direction = DBusArgDirection.OUT,
+                                    annotations = emptyList(),
+                                ),
+                            ),
+                            annotations = emptyList(),
+                        ),
+                    ),
+                    signals = listOf(
+                        DBusSignal(
+                            name = "InterfacesAdded",
+                            args = listOf(
+                                DBusArg(
+                                    name = "object",
+                                    type = DBusSignature.Primitive('o'),
+                                    direction = DBusArgDirection.OUT,
+                                    annotations = emptyList(),
+                                ),
+                                DBusArg(
+                                    name = "interfaces",
+                                    type = DBusSignature.Array(
+                                        DBusSignature.DictionaryEntry(
+                                            key = DBusSignature.Primitive('s'),
+                                            value = DBusSignature.Array(
+                                                DBusSignature.DictionaryEntry(
+                                                    key = DBusSignature.Primitive('s'),
+                                                    value = DBusSignature.Variant
+                                                )
+                                            )
+                                        )
+                                    ),
+                                    direction = DBusArgDirection.OUT,
+                                    annotations = emptyList(),
+                                )
+                            )
+                        ),
+                        DBusSignal(
+                            name = "InterfacesRemoved",
+                            args = listOf(
+                                DBusArg(
+                                    name = "object",
+                                    type = DBusSignature.Primitive('o'),
+                                    direction = DBusArgDirection.OUT,
+                                    annotations = emptyList(),
+                                ),
+                                DBusArg(
+                                    name = "interfaces",
+                                    type = DBusSignature.Array(
+                                        DBusSignature.Primitive('s')
+                                    ),
+                                    direction = DBusArgDirection.OUT,
+                                    annotations = emptyList(),
+                                )
+                            )
+                        )
+                    ),
+                    properties = emptyList(),
+                ),
+            ),
+            childNodes = emptyList(),
+        )
+        assertEquals(ast, parseXML(inputFile))
+    }
 }
