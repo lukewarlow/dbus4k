@@ -383,7 +383,6 @@ sealed class DBusMessage(
     }
 
     internal fun writePrimitive(value: Any, type: DBusType) {
-        dbusCheck(sd_bus_message_append(pointer, type.toSignatureString(), value))
         dbusCheck(
             when (value) {
                 is Byte -> sd_bus_message_append(
