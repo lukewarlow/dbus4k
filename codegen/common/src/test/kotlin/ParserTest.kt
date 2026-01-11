@@ -484,4 +484,156 @@ class ParserTest {
         )
         assertEquals(ast, parseXML(inputFile))
     }
+
+    @Test
+    fun testWithDBusProperties() {
+        val inputFile = """
+            <node>
+                <interface name="org.freedesktop.DBus.Properties">
+                    <method name="Get">
+                        <arg direction="in" type="s" name="interface"/>
+                        <arg direction="in" type="s" name="property"/>
+                        <arg direction="out" type="v" name="value"/>
+                    </method>
+                    <method name="Set">
+                        <arg direction="in" type="s" name="interface"/>
+                        <arg direction="in" type="s" name="property"/>
+                        <arg direction="in" type="v" name="value"/>
+                    </method>
+                    <method name="GetAll">
+                        <arg direction="in" type="s" name="interface"/>
+                        <arg direction="out" type="a{sv}" name="properties"/>
+                    </method>
+                    <signal name="PropertiesChanged">
+                        <arg name="interface" type="s"/>
+                        <arg name="changed_properties" type="a{sv}"/>
+                        <arg name="invalidated_properties" type="as"/>
+                    </signal>
+                </interface>
+            </node>
+        """.trimIndent()
+
+        val ast = DBusIntrospectionNode(
+            name = "",
+            interfaces = listOf(
+                DBusInterface(
+                    name = "org.freedesktop.DBus.Properties",
+                    methods = listOf(
+                        DBusMethod(
+                            name = "Get",
+                            inArgs = listOf(
+                                DBusArg(
+                                    name = "interface",
+                                    type = DBusSignature.Primitive('s'),
+                                    direction = DBusArgDirection.IN,
+                                    annotations = emptyList(),
+                                ),
+                                DBusArg(
+                                    name = "property",
+                                    type = DBusSignature.Primitive('s'),
+                                    direction = DBusArgDirection.IN,
+                                    annotations = emptyList(),
+                                ),
+                            ),
+                            outArgs = listOf(
+                                DBusArg(
+                                    name = "value",
+                                    type = DBusSignature.Variant,
+                                    direction = DBusArgDirection.OUT,
+                                    annotations = emptyList(),
+                                ),
+                            ),
+                            annotations = emptyList(),
+                        ),
+                        DBusMethod(
+                            name = "Set",
+                            inArgs = listOf(
+                                DBusArg(
+                                    name = "interface",
+                                    type = DBusSignature.Primitive('s'),
+                                    direction = DBusArgDirection.IN,
+                                    annotations = emptyList(),
+                                ),
+                                DBusArg(
+                                    name = "property",
+                                    type = DBusSignature.Primitive('s'),
+                                    direction = DBusArgDirection.IN,
+                                    annotations = emptyList(),
+                                ),
+                                DBusArg(
+                                    name = "value",
+                                    type = DBusSignature.Variant,
+                                    direction = DBusArgDirection.IN,
+                                    annotations = emptyList(),
+                                ),
+                            ),
+                            outArgs = emptyList(),
+                            annotations = emptyList(),
+                        ),
+                        DBusMethod(
+                            name = "GetAll",
+                            inArgs = listOf(
+                                DBusArg(
+                                    name = "interface",
+                                    type = DBusSignature.Primitive('s'),
+                                    direction = DBusArgDirection.IN,
+                                    annotations = emptyList(),
+                                ),
+                            ),
+                            outArgs = listOf(
+                                DBusArg(
+                                    name = "properties",
+                                    type = DBusSignature.Array(
+                                        DBusSignature.DictionaryEntry(
+                                            key = DBusSignature.Primitive('s'),
+                                            value = DBusSignature.Variant,
+                                        )
+                                    ),
+                                    direction = DBusArgDirection.OUT,
+                                    annotations = emptyList(),
+                                ),
+                            ),
+                            annotations = emptyList(),
+                        ),
+                    ),
+                    signals = listOf(
+                        DBusSignal(
+                            name = "PropertiesChanged",
+                            args = listOf(
+                                DBusArg(
+                                    name = "interface",
+                                    type = DBusSignature.Primitive('s'),
+                                    direction = DBusArgDirection.OUT,
+                                    annotations = emptyList(),
+                                ),
+                                DBusArg(
+                                    name = "changed_properties",
+                                    type = DBusSignature.Array(
+                                        DBusSignature.DictionaryEntry(
+                                            key = DBusSignature.Primitive('s'),
+                                            value = DBusSignature.Variant,
+                                        )
+                                    ),
+                                    direction = DBusArgDirection.OUT,
+                                    annotations = emptyList(),
+                                ),
+                                DBusArg(
+                                    name = "invalidated_properties",
+                                    type = DBusSignature.Array(
+                                        DBusSignature.Primitive('s')
+                                    ),
+                                    direction = DBusArgDirection.OUT,
+                                    annotations = emptyList(),
+                                ),
+                            )
+                        )
+                    ),
+                    properties = emptyList(),
+                )
+            ),
+            childNodes = emptyList(),
+        )
+
+        assertEquals(ast, parseXML(inputFile))
+    }
 }

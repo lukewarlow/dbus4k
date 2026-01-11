@@ -98,7 +98,7 @@ private fun TypeSpec.Builder.addMethodCall(packageName: String, className: Strin
     )
 
     for (arg in method.inArgs) {
-        funSpec.addStatement("message.%L", generateWriter(convertName(arg.name), arg.type))
+        funSpec.addStatement("message.%L", generateWriter(CodeBlock.of("%N", convertName(arg.name)), arg.type))
     }
 
     val outArgsSize = method.outArgs.size
@@ -257,43 +257,42 @@ private fun mapSignatureToKotlinType(signature: DBusSignature): TypeName = when(
     }
 }
 
-private fun generateWriter(name: String, type: DBusSignature): String {
+private fun generateWriter(expr: CodeBlock, type: DBusSignature): CodeBlock {
     return when(type) {
         is DBusSignature.Primitive -> {
             val fn = primitiveWriterName(type.code)
-            "$fn(${name})"
+            CodeBlock.of("%L(%L)", fn, expr)
         }
 
         is DBusSignature.Array -> when (val element = type.element) {
-            is DBusSignature.DictionaryEntry ->
-                "writeMapVariant(${name})"
+            is DBusSignature.DictionaryEntry -> CodeBlock.of("writeMapVariant(%L)", expr)
             is DBusSignature.Primitive -> {
                 val fn = arrayWriterName(type.element)
-                "$fn(${name})"
+                CodeBlock.of("%L(%L)", fn, expr)
             }
             is DBusSignature.Struct -> when (element.fields.size) {
                 2 -> {
-                    val a = generateWriter("it", element.fields[0])
-                    val b = generateWriter("it", element.fields[1])
-                    "writeStructPairArray(\"${element.toSignature()}\", ${name}, { $a }, { $b })"
+                    val a = generateWriter(CodeBlock.of("it"), element.fields[0])
+                    val b = generateWriter(CodeBlock.of("it"), element.fields[1])
+                    CodeBlock.of("writeStructPairArray(\"${element.toSignature()}\", %L, { %L }, { %L })", expr, a, b)
                 }
                 3 -> {
-                    val a = generateWriter("it", element.fields[0])
-                    val b = generateWriter("it", element.fields[1])
-                    val c = generateWriter("it", element.fields[2])
-                    "writeStructTripleArray(\"${element.toSignature()}\", ${name}, { $a }, { $b }, { $c })"
+                    val a = generateWriter(CodeBlock.of("it"), element.fields[0])
+                    val b = generateWriter(CodeBlock.of("it"), element.fields[1])
+                    val c = generateWriter(CodeBlock.of("it"), element.fields[2])
+                    CodeBlock.of("writeStructTripleArray(\"${element.toSignature()}\", %L, { %L }, { %L }, { %L })", expr, a, b, c)
                 }
                 else -> {
 					val fieldWriters = element.fields.mapIndexed { index, field ->
-						generateWriter("it[$index] as ${mapSignatureToKotlinType(field)}", field)
+						generateWriter(CodeBlock.of("it[%L] as %T", index, mapSignatureToKotlinType(field)), field)
 					}.joinToString("\n")
-					"writeStructArray(\"${element.toSignature()}\", $name) {\n$fieldWriters\n}"
+                    CodeBlock.of("writeStructArray(\"${element.toSignature()}\", %L) {\n$fieldWriters\n}", expr)
 				}
             }
 	        is DBusSignature.Array -> when (val innerElement = element.element) {
 		        is DBusSignature.DictionaryEntry -> {
-					"writeArray(\"${element.toSignature()}\", $name) {\nwriteMapVariant(it)\n}"
-				}
+                    CodeBlock.of("writeArray(\"${element.toSignature()}\", %L) {\nwriteMapVariant(it)\n}", expr)
+                }
 		        else -> error("Unsupported nested array element type: $element")
 	        }
             else -> error("Unsupported array element type: $element")
@@ -301,25 +300,25 @@ private fun generateWriter(name: String, type: DBusSignature): String {
 
         is DBusSignature.DictionaryEntry -> error("Dictionary entries unsupported at top level")
 
-        is DBusSignature.Variant -> "writeVariant(${name})"
+        is DBusSignature.Variant -> CodeBlock.of("writeVariant(%L)", expr)
 
         is DBusSignature.Struct -> when (type.fields.size) {
             2 -> {
-                val a = generateWriter("it", type.fields[0])
-                val b = generateWriter("it", type.fields[1])
-                "writeStructPair(${name}, { $a }, { $b })"
+                val a = generateWriter(CodeBlock.of("it"), type.fields[0])
+                val b = generateWriter(CodeBlock.of("it"), type.fields[1])
+                CodeBlock.of("writeStructPair(%L, { %L }, { %L })", expr, a, b)
             }
             3 -> {
-                val a = generateWriter("it", type.fields[0])
-                val b = generateWriter("it", type.fields[1])
-                val c = generateWriter("it", type.fields[2])
-                "writeStructTriple(${name}, { $a }, { $b }, { $c })"
+                val a = generateWriter(CodeBlock.of("it"), type.fields[0])
+                val b = generateWriter(CodeBlock.of("it"), type.fields[1])
+                val c = generateWriter(CodeBlock.of("it"), type.fields[2])
+                CodeBlock.of("writeStructTriple(%N, { %L }, { %L }, { %L })", expr, a, b, c)
             }
             else -> {
 	            val fieldWriters = type.fields.mapIndexed { index, field ->
-		            generateWriter("$name[$index] as ${mapSignatureToKotlinType(field)}", field)
+		            generateWriter(CodeBlock.of("%L[%L] as %T", expr, index, mapSignatureToKotlinType(field)), field)
 	            }.joinToString("\n")
-	            return "writeStruct {\n$fieldWriters\n}"
+                CodeBlock.of("writeStruct {\n$fieldWriters\n}")
 			}
         }
     }

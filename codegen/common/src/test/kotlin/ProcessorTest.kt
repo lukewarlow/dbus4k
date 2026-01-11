@@ -561,4 +561,188 @@ class ProcessorTest {
                 }
                 """.trimIndent(), kotlinCode.trim())
     }
+
+    @Test
+    fun testWithProperties() {
+        val fileName = "org.freedesktop.DBus.Properties.xml"
+        val packageName = "dev.lukewarlow.dbus4k.generated"
+
+        val ast = DBusIntrospectionNode(
+            name = "",
+            interfaces = listOf(
+                DBusInterface(
+                    name = "org.freedesktop.DBus.Properties",
+                    methods = listOf(
+                        DBusMethod(
+                            name = "Get",
+                            inArgs = listOf(
+                                DBusArg(
+                                    name = "interface",
+                                    type = DBusSignature.Primitive('s'),
+                                    direction = DBusArgDirection.IN,
+                                    annotations = emptyList(),
+                                ),
+                                DBusArg(
+                                    name = "property",
+                                    type = DBusSignature.Primitive('s'),
+                                    direction = DBusArgDirection.IN,
+                                    annotations = emptyList(),
+                                ),
+                            ),
+                            outArgs = listOf(
+                                DBusArg(
+                                    name = "value",
+                                    type = DBusSignature.Variant,
+                                    direction = DBusArgDirection.OUT,
+                                    annotations = emptyList(),
+                                ),
+                            ),
+                            annotations = emptyList(),
+                        ),
+                        DBusMethod(
+                            name = "Set",
+                            inArgs = listOf(
+                                DBusArg(
+                                    name = "interface",
+                                    type = DBusSignature.Primitive('s'),
+                                    direction = DBusArgDirection.IN,
+                                    annotations = emptyList(),
+                                ),
+                                DBusArg(
+                                    name = "property",
+                                    type = DBusSignature.Primitive('s'),
+                                    direction = DBusArgDirection.IN,
+                                    annotations = emptyList(),
+                                ),
+                                DBusArg(
+                                    name = "value",
+                                    type = DBusSignature.Variant,
+                                    direction = DBusArgDirection.IN,
+                                    annotations = emptyList(),
+                                ),
+                            ),
+                            outArgs = emptyList(),
+                            annotations = emptyList(),
+                        ),
+                        DBusMethod(
+                            name = "GetAll",
+                            inArgs = listOf(
+                                DBusArg(
+                                    name = "interface",
+                                    type = DBusSignature.Primitive('s'),
+                                    direction = DBusArgDirection.IN,
+                                    annotations = emptyList(),
+                                ),
+                            ),
+                            outArgs = listOf(
+                                DBusArg(
+                                    name = "properties",
+                                    type = DBusSignature.Array(
+                                        DBusSignature.DictionaryEntry(
+                                            key = DBusSignature.Primitive('s'),
+                                            value = DBusSignature.Variant,
+                                        )
+                                    ),
+                                    direction = DBusArgDirection.OUT,
+                                    annotations = emptyList(),
+                                ),
+                            ),
+                            annotations = emptyList(),
+                        ),
+                    ),
+                    signals = listOf(
+                        DBusSignal(
+                            name = "PropertiesChanged",
+                            args = listOf(
+                                DBusArg(
+                                    name = "interface",
+                                    type = DBusSignature.Primitive('s'),
+                                    direction = DBusArgDirection.OUT,
+                                    annotations = emptyList(),
+                                ),
+                                DBusArg(
+                                    name = "changed_properties",
+                                    type = DBusSignature.Array(
+                                        DBusSignature.DictionaryEntry(
+                                            key = DBusSignature.Primitive('s'),
+                                            value = DBusSignature.Variant,
+                                        )
+                                    ),
+                                    direction = DBusArgDirection.OUT,
+                                    annotations = emptyList(),
+                                ),
+                                DBusArg(
+                                    name = "invalidated_properties",
+                                    type = DBusSignature.Array(
+                                        DBusSignature.Primitive('s')
+                                    ),
+                                    direction = DBusArgDirection.OUT,
+                                    annotations = emptyList(),
+                                ),
+                            )
+                        )
+                    ),
+                    properties = emptyList(),
+                )
+            ),
+            childNodes = emptyList(),
+        )
+        val kotlinCode = processDBusIntrospectionNode(fileName, packageName, ast)
+        assertEquals(
+            """
+                package dev.lukewarlow.dbus4k.generated
+                
+                import dev.lukewarlow.dbus4k.runtime.DBusConnection
+                import kotlin.Any
+                import kotlin.String
+                import kotlin.collections.List
+                import kotlin.collections.Map
+                import kotlinx.coroutines.flow.Flow
+                import kotlinx.coroutines.flow.map
+                
+                public class Properties(
+                    private val bus: DBusConnection,
+                    private val destination: String,
+                    private val path: String,
+                ) {
+                    private val interfaceName: String = "org.freedesktop.DBus.Properties"
+                
+                    public suspend fun `get`(`interface`: String, `property`: String): Any? {
+                        val message = bus.newMethodCall(destination, path, interfaceName, "Get")
+                        message.writeString(`interface`)
+                        message.writeString(`property`)
+                        val reply = message.awaitReply(bus)
+                        return reply.readVariant()
+                    }
+                
+                    public suspend fun `set`(
+                        `interface`: String,
+                        `property`: String,
+                        `value`: Any?,
+                    ) {
+                        val message = bus.newMethodCall(destination, path, interfaceName, "Set")
+                        message.writeString(`interface`)
+                        message.writeString(`property`)
+                        message.writeVariant(`value`)
+                        message.awaitReply(bus)
+                        return
+                    }
+                
+                    public suspend fun getAll(`interface`: String): Map<String, Any?> {
+                        val message = bus.newMethodCall(destination, path, interfaceName, "GetAll")
+                        message.writeString(`interface`)
+                        val reply = message.awaitReply(bus)
+                        return reply.readDictionary("a{sv}", { readString() }, { readVariant() })
+                    }
+                
+                    public fun propertiesChanged(): Flow<PropertiesChangedEvent> = bus.signalFlow(interfaceName, "PropertiesChanged", path, destination).map { signal -> PropertiesChangedEvent(signal.readString(), signal.readDictionary("a{sv}", { readString() }, { readVariant() }), signal.readStringArray()) }
+                
+                    public data class PropertiesChangedEvent(
+                        public val `interface`: String,
+                        public val changedProperties: Map<String, Any?>,
+                        public val invalidatedProperties: List<String>,
+                    )
+                }
+                """.trimIndent(), kotlinCode.trim())
+    }
 }
