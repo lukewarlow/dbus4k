@@ -162,7 +162,7 @@ sealed class DBusMessage(
 
     private inline fun <T> readPrimitiveArray(
         type: DBusType,
-        reader: () -> T
+        reader: DBusMessage.() -> T
     ): List<T> {
         enterArray(type.toSignatureString())
 
@@ -325,8 +325,8 @@ sealed class DBusMessage(
 
     inline fun <K, V> readDictionary(
         signature: String,
-        keyReader: () -> K,
-        valueReader: () -> V
+        keyReader: DBusMessage.() -> K,
+        valueReader: DBusMessage.() -> V
     ): Map<K, V> {
         require(signature.length >= 2) { "Dictionary-entry signature must be key-value pair" }
         val result = LinkedHashMap<K, V>()
@@ -347,10 +347,10 @@ sealed class DBusMessage(
     }
 
     fun readStringVariantDictionary(): Map<String, Any?> =
-        readDictionary("sv", ::readString, ::readVariant)
+        readDictionary("sv", { readString() }, { readVariant() })
 
     fun readStringStringDictionary(): Map<String, String> =
-        readDictionary("ss", ::readString, ::readString)
+        readDictionary("ss", { readString() }, { readString() })
 
     fun readDynamicValue(): Any? =
         when (peekType()) {
@@ -421,7 +421,7 @@ sealed class DBusMessage(
         exitContainer()
     }
 
-    private inline fun <T> writePrimitiveArray(type: DBusType, values: List<T>, writer: (T) -> Unit) = writeArray(type.toSignatureString(), values, writer)
+    private inline fun <T> writePrimitiveArray(type: DBusType, values: List<T>, writer: DBusMessage.(T) -> Unit) = writeArray(type.toSignatureString(), values, writer)
 
     fun writeByteArray(values: ByteArray) {
 	    enterArray(DBusType.BYTE.toSignatureString())
@@ -429,27 +429,27 @@ sealed class DBusMessage(
 	    exitContainer()
     }
 
-    fun writeBooleanArray(values: List<Boolean>) = writePrimitiveArray(DBusType.BOOLEAN, values, ::writeBoolean)
+    fun writeBooleanArray(values: List<Boolean>) = writePrimitiveArray(DBusType.BOOLEAN, values, { writeBoolean(it) })
 
-    fun writeShortArray(values: List<Short>) = writePrimitiveArray(DBusType.SHORT, values, ::writeShort)
+    fun writeShortArray(values: List<Short>) = writePrimitiveArray(DBusType.SHORT, values, { writeShort(it) })
 
-    fun writeUShortArray(values: List<UShort>) = writePrimitiveArray(DBusType.USHORT, values, ::writeUShort)
+    fun writeUShortArray(values: List<UShort>) = writePrimitiveArray(DBusType.USHORT, values, { writeUShort(it) })
 
-	fun writeIntArray(values: List<Int>) = writePrimitiveArray(DBusType.INT, values, ::writeInt)
+	fun writeIntArray(values: List<Int>) = writePrimitiveArray(DBusType.INT, values, { writeInt(it) })
 
-	fun writeUIntArray(values: List<UInt>) = writePrimitiveArray(DBusType.UINT, values, ::writeUInt)
+	fun writeUIntArray(values: List<UInt>) = writePrimitiveArray(DBusType.UINT, values, { writeUInt(it) })
 
-	fun writeLongArray(values: List<Long>) = writePrimitiveArray(DBusType.LONG, values, ::writeLong)
+	fun writeLongArray(values: List<Long>) = writePrimitiveArray(DBusType.LONG, values, { writeLong(it) })
 
-	fun writeULongArray(values: List<ULong>) = writePrimitiveArray(DBusType.ULONG, values, ::writeULong)
+	fun writeULongArray(values: List<ULong>) = writePrimitiveArray(DBusType.ULONG, values, { writeULong(it) })
 
-	fun writeDoubleArray(values: List<Double>) = writePrimitiveArray(DBusType.DOUBLE, values, ::writeDouble)
+	fun writeDoubleArray(values: List<Double>) = writePrimitiveArray(DBusType.DOUBLE, values, { writeDouble(it) })
 
-    fun writeStringArray(values: List<String>) = writePrimitiveArray(DBusType.STRING, values, ::writeString)
-    fun writeObjectPathArray(values: List<String>) = writePrimitiveArray(DBusType.OBJECT_PATH, values, ::writeObjectPath)
-    fun writeSignatureArray(values: List<String>) = writePrimitiveArray(DBusType.SIGNATURE, values, ::writeSignature)
+    fun writeStringArray(values: List<String>) = writePrimitiveArray(DBusType.STRING, values, { writeString(it) })
+    fun writeObjectPathArray(values: List<String>) = writePrimitiveArray(DBusType.OBJECT_PATH, values, { writeObjectPath(it) })
+    fun writeSignatureArray(values: List<String>) = writePrimitiveArray(DBusType.SIGNATURE, values, { writeSignature(it) })
 
-	fun writeFileDescriptorArray(values: List<Int>) = writePrimitiveArray(DBusType.FILE_DESCRIPTOR, values, ::writeFileDescriptor)
+	fun writeFileDescriptorArray(values: List<Int>) = writePrimitiveArray(DBusType.FILE_DESCRIPTOR, values, { writeFileDescriptor(it) })
 
     inline fun writeStruct(writer: DBusMessage.() -> Unit) {
         enterStruct()
@@ -516,7 +516,7 @@ sealed class DBusMessage(
         }
     }
 
-    inline fun writeVariant(signature: String, writer: () -> Unit) {
+    inline fun writeVariant(signature: String, writer: DBusMessage.() -> Unit) {
         enterVariant(signature)
         writer()
         exitContainer()
@@ -578,7 +578,7 @@ sealed class DBusMessage(
         )
     }
 
-    inline fun writeDictionaryEntry(keySignature: String, valueSignature: String, writer: () -> Unit) {
+    inline fun writeDictionaryEntry(keySignature: String, valueSignature: String, writer: DBusMessage.() -> Unit) {
         enterDictionaryEntry("{$keySignature$valueSignature}")
         writer()
         exitContainer()
