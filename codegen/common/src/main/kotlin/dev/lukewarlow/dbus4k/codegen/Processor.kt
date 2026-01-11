@@ -24,7 +24,7 @@ fun processXML(xmlFile: String, fileName: String, packageName: String): String {
 
 internal fun processDBusIntrospectionNode(fileName: String, packageName: String, ast: DBusIntrospectionNode): String {
     val fileSpec = FileSpec.builder(packageName, "${fileName}.kt")
-        .addImport("dev.lukewarlow.dbus4k.runtime", "DBusConnection")
+        .addImport("dev.lukewarlow.dbus4k.runtime", "DBusConnection", "DBusProperties")
         .addImport("kotlinx.coroutines.flow", "Flow", "map")
         .indent("    ")
     ast.interfaces.forEach { interfaceObj ->
