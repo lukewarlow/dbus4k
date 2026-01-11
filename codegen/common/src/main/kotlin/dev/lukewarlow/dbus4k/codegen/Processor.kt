@@ -175,7 +175,7 @@ private fun TypeSpec.Builder.addPropertyGetter(property: DBusProperty) {
     val funSpec = FunSpec.builder("get${kotlinName}")
         .addModifiers(KModifier.SUSPEND)
         .returns(returnType)
-        .addStatement("return bus.getProperty<%T>(destination, path, interfaceName, %S)", returnType, property.name)
+        .addStatement("return DBusProperties(bus, destination, path).getProperty<%T>(interfaceName, %S)", returnType, property.name)
 
     this.addFunction(funSpec.build())
 }
@@ -189,7 +189,7 @@ private fun TypeSpec.Builder.addPropertySetter(property: DBusProperty) {
     val funSpec = FunSpec.builder("set${kotlinName}")
         .addModifiers(KModifier.SUSPEND)
         .addParameter("newValue", propertyType)
-        .addStatement("bus.setProperty(destination, path, interfaceName, %S, newValue)", property.name)
+        .addStatement("DBusProperties(bus, destination, path).setProperty(interfaceName, %S, newValue)", property.name)
 
     this.addFunction(funSpec.build())
 }

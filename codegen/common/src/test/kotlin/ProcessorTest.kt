@@ -79,6 +79,8 @@ class ProcessorTest {
                 import kotlin.String
                 import kotlin.UInt
                 import kotlin.collections.Map
+                import kotlinx.coroutines.flow.Flow
+                import kotlinx.coroutines.flow.map
 
                 public class SecretPortal(
                     private val bus: DBusConnection,
@@ -95,7 +97,7 @@ class ProcessorTest {
                         return reply.readObjectPath()
                     }
 
-                    public suspend fun getVersion(): UInt = bus.getProperty<UInt>(destination, path, interfaceName, "version")
+                    public suspend fun getVersion(): UInt = DBusProperties(bus, destination, path).getProperty<UInt>(interfaceName, "version")
                 }
                 """.trimIndent(), kotlinCode.trim())
     }
@@ -377,7 +379,7 @@ class ProcessorTest {
                         val message = bus.newMethodCall(destination, path, interfaceName, "EnumerateDevices")
                         message.writeMapVariant(options)
                         val reply = message.awaitReply(bus)
-                        return reply.readStructPairArray("a(sa{sv})", { readString() }, { readStringVariantDictionary() })
+                        return reply.readStructPairArray("a(sa{sv})", { readString() }, { readDictionary("a{sv}", { readString() }, { readVariant() }) })
                     }
 
                     public suspend fun acquireDevices(
@@ -398,7 +400,7 @@ class ProcessorTest {
                         message.writeObjectPath(handle)
                         message.writeMapVariant(options)
                         val reply = message.awaitReply(bus)
-                        return FinishAcquireDevicesResult(reply.readStructPairArray("a(sa{sv})", { readString() }, { readStringVariantDictionary() }), reply.readBoolean())
+                        return FinishAcquireDevicesResult(reply.readStructPairArray("a(sa{sv})", { readString() }, { readDictionary("a{sv}", { readString() }, { readVariant() }) }), reply.readBoolean())
                     }
 
                     public suspend fun releaseDevices(devices: List<String>, options: Map<String, Any?>) {
@@ -409,9 +411,9 @@ class ProcessorTest {
                         return
                     }
 
-                    public fun deviceEvents(): Flow<DeviceEventsEvent> = bus.signalFlow(interfaceName, "DeviceEvents", path, destination).map { signal -> DeviceEventsEvent(signal.readObjectPath(), signal.readStructTripleArray("a(ssa{sv})", { readString() }, { readString() }, { readStringVariantDictionary() })) }
+                    public fun deviceEvents(): Flow<DeviceEventsEvent> = bus.signalFlow(interfaceName, "DeviceEvents", path, destination).map { signal -> DeviceEventsEvent(signal.readObjectPath(), signal.readStructTripleArray("a(ssa{sv})", { readString() }, { readString() }, { readDictionary("a{sv}", { readString() }, { readVariant() }) })) }
 
-                    public suspend fun getVersion(): UInt = bus.getProperty<UInt>(destination, path, interfaceName, "version")
+                    public suspend fun getVersion(): UInt = DBusProperties(bus, destination, path).getProperty<UInt>(interfaceName, "version")
 
                     public data class FinishAcquireDevicesResult(
                         public val results: List<Pair<String, Map<String, Any?>>>,
